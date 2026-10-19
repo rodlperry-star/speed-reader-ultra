@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Speed Reader Ultra">
+<meta name="theme-color" content="#ECEFF2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111418" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Super Speed Reader Ultra</title>
+<style>
+@font-face{font-family:"Literata";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/literata-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Literata";font-weight:600;font-style:normal;font-display:swap;src:url("fonts/literata-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-style:normal;font-display:swap;src:url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-style:normal;font-display:swap;src:url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-style:normal;font-display:swap;src:url("fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2")}
+html{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
+body{margin:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+/* Layout: a single reading instrument. Top bar, a tall focal stage with a reticle, a scrub rail, then a control deck. Library slides in as its own view. */
+:root{
+  --bg:#ECEFF2; --surface:#F8F9FB; --ink:#15191E; --muted:#5C6672; --line:#D2D8DF;
+  --focus:#C21E4E; --accent:#2D4877; --accent-ink:#FFFFFF; --ghost:#A9B2BC;
+  --read:"Literata", Georgia, "Times New Roman", serif;
+  --ui:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --word-size:clamp(2.2rem, 7vw, 4rem);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#111418; --surface:#191D23; --ink:#E6E9EE; --muted:#8C96A2; --line:#2A3039;
+  --focus:#FF5A85; --accent:#93B2E8; --accent-ink:#0E1420; --ghost:#4A525D; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#111418; --surface:#191D23; --ink:#E6E9EE; --muted:#8C96A2; --line:#2A3039;
+  --focus:#FF5A85; --accent:#93B2E8; --accent-ink:#0E1420; --ghost:#4A525D; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:flex;flex-direction:column;max-width:960px;margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px}
+
+.bar{display:flex;align-items:center;gap:12px;padding-block:6px 14px;border-bottom:1px solid var(--line)}
+.brand{font-family:var(--read);font-weight:600;font-size:1.25rem;letter-spacing:-.01em;display:flex;align-items:baseline;gap:2px}
+.brand{white-space:nowrap}.brand b{color:var(--focus);font-family:var(--mono);font-weight:500;font-size:.62em;letter-spacing:.14em;text-transform:uppercase;border:1.5px solid var(--focus);border-radius:4px;padding:1px 5px 0;margin-left:7px;align-self:center}
+.booktitle{flex:1;min-width:0;color:var(--muted);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.booktitle strong{color:var(--ink);font-weight:500}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--focus);border-color:var(--focus)}
+.btn svg{width:16px;height:16px}
+
+/* Reader */
+#reader{flex:1;display:flex;flex-direction:column;min-height:0}
+.stage{flex:1;min-height:200px;position:relative;display:flex;flex-direction:column;justify-content:center;cursor:pointer;user-select:none}
+.reticle{position:relative;height:110px;display:flex;align-items:center}
+.reticle::before,.reticle::after{content:"";position:absolute;left:0;right:0;height:1px;background:var(--line)}
+.reticle::before{top:0}.reticle::after{bottom:0}
+.notch{position:absolute;left:38%;width:2px;height:14px;background:var(--focus);transform:translateX(-1px)}
+.notch.t{top:0}.notch.b{bottom:0}
+.word{display:grid;grid-template-columns:38% auto 1fr;width:100%;font-family:var(--read);font-size:var(--word-size);line-height:1;white-space:pre;align-items:baseline}
+.w-l{display:flex;justify-content:flex-end;overflow:hidden;min-width:0}
+.w-p{color:var(--focus);font-weight:600;text-align:center}
+.w-r{overflow:hidden;min-width:0}
+.hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:var(--muted);font-size:.82rem}
+.hint kbd{font-family:var(--mono);font-size:.75rem;border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--surface)}
+
+.context{max-height:34vh;overflow:auto;font-family:var(--read);font-size:1.02rem;line-height:1.7;color:var(--muted);
+  max-width:65ch;margin:0 auto 10px;padding:4px 2px}
+.context span{cursor:pointer;border-radius:3px}
+.context span:hover{color:var(--ink);background:var(--line)}
+.context .cur{color:var(--accent-ink);background:var(--focus)}
+.context .pb{display:block;height:.6em}
+
+.meta{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--muted);padding-block:6px}
+.meta .num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.meta select{max-width:240px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:.82rem}
+.rail{width:100%;accent-color:var(--focus);margin:2px 0 10px}
+
+.deck{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding-block:12px 4px;border-top:1px solid var(--line)}
+.transport{display:flex;gap:8px;align-items:center}
+.play{width:56px;height:56px;border-radius:50%;justify-content:center;padding:0;background:var(--focus);border-color:var(--focus);color:#fff}
+.play svg{width:22px;height:22px}
+.settings{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center}
+.field{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+.field input[type=range]{width:150px;accent-color:var(--accent)}
+.wpm{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);min-width:6.5ch;font-size:.9rem}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 10px;cursor:pointer;font-size:.82rem}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.switch{display:flex;align-items:center;gap:6px;cursor:pointer}
+.switch input{accent-color:var(--accent);width:16px;height:16px}
+
+/* Library */
+#library{flex:1;overflow:auto;padding-block:18px}
+.lib-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.lib-head h1{font-family:var(--read);font-weight:600;font-size:1.6rem;margin:0;text-wrap:balance}
+.drop{display:block;border:1.5px dashed var(--ghost);border-radius:12px;padding:22px 16px;text-align:center;color:var(--muted);margin-bottom:18px;cursor:pointer;background:var(--surface)}
+.drop.over{border-color:var(--focus);color:var(--ink)}
+.drop strong{color:var(--ink);font-weight:500}
+.status{font-size:.85rem;color:var(--accent);min-height:1.2em;margin:-8px 0 12px}
+.books{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.book{display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:center}
+.book .t{font-family:var(--read);font-size:1.08rem;min-width:0;overflow-wrap:anywhere}
+.book .a{color:var(--muted);font-size:.82rem}
+.book .prog{grid-column:1 / -1;display:flex;gap:10px;align-items:center;font-size:.78rem;color:var(--muted);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.book .bar2{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.book .bar2 i{display:block;height:100%;background:var(--focus)}
+.book .acts{display:flex;gap:6px}
+.tag{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.empty{color:var(--muted);padding:12px 0}
+
+/* Mac app: title bar */
+.native .bar{-webkit-app-region:drag;padding-left:72px;padding-top:4px}
+.native .bar button{-webkit-app-region:no-drag}
+.native .app{padding-block:8px 12px}
+.ab{margin-top:28px}
+.ab-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.ab-head h2{font-family:var(--read);font-weight:600;font-size:1.2rem;margin:0}
+.ab-note{color:var(--muted);font-size:.85rem;margin:0 0 10px;max-width:65ch}
+.lock{color:var(--muted);font-size:.78rem;font-family:var(--mono)}
+@media (max-width:560px){
+  .field input[type=range]{width:110px}
+  .deck{justify-content:center}
+  .settings{justify-content:center}
+  .booktitle{display:none}
+  .reticle{height:96px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">Super Speed Reader<b>Ultra</b></div>
+    <div class="booktitle" id="bookTitle"></div>
+    <button class="btn" id="libBtn" type="button" aria-label="Library">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 5l3.5-1 3 15.5-3.5 1z"/></svg><span>Library</span></button>
+  </header>
+
+  <main id="reader">
+    <div class="stage" id="stage" title="Click to play or pause">
+      <div class="context" id="context" hidden></div>
+      <div class="reticle">
+        <i class="notch t"></i><i class="notch b"></i>
+        <div class="word" id="word"><span class="w-l"><span id="wl"></span></span><span class="w-p" id="wp"></span><span class="w-r" id="wr"></span></div>
+      </div>
+      <div class="hint" id="hint"><kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> sentence · <kbd>↑</kbd><kbd>↓</kbd> speed</div>
+    </div>
+
+    <div class="meta">
+      <select id="chapter" aria-label="Chapter"></select>
+      <span><span class="num" id="pct">0%</span> · <span class="num" id="left">0 min</span> left</span>
+    </div>
+    <input class="rail" id="scrub" type="range" min="0" max="0" value="0" aria-label="Position in book">
+
+    <div class="deck">
+      <div class="transport">
+        <button class="btn" id="backBtn" type="button" aria-label="Previous sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 6v12L2.5 12zM21 6v12l-8.5-6z"/></svg></button>
+        <button class="btn play" id="playBtn" type="button" aria-label="Play"><svg id="playIco" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+        <button class="btn" id="fwdBtn" type="button" aria-label="Next sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 6v12l8.5-6zM3 6v12l8.5-6z"/></svg></button>
+      </div>
+      <div class="settings">
+        <label class="field" for="wpm">Speed <input id="wpm" type="range" min="100" max="1000" step="25"><span class="wpm" id="wpmVal">300 wpm</span></label>
+        <div class="field">Words <span class="seg" id="chunkSeg"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button></span></div>
+        <div class="field">Size <span class="seg" id="sizeSeg"><button type="button" data-v="s">S</button><button type="button" data-v="m">M</button><button type="button" data-v="l">L</button></span></div>
+        <label class="switch field" for="punct"><input id="punct" type="checkbox"> Pause at punctuation</label>
+      </div>
+    </div>
+  </main>
+
+  <section id="library" hidden>
+    <div class="lib-head">
+      <h1>Your books</h1>
+      <button class="btn" id="backToReader" type="button">Back to reader</button>
+    </div>
+    <label class="drop" id="drop" for="file">
+      <strong>Add a book</strong><br>Tap to choose an EPUB, PDF or TXT file, or drop one here. Mac Books folders work once compressed to .zip.<br>
+      <span style="font-size:.8rem">Books stay in this browser. Nothing is uploaded anywhere.</span>
+      <input id="file" type="file" accept=".epub,.zip,.pdf,.txt,.md,application/epub+zip,application/zip,application/pdf,text/plain" multiple hidden>
+    </label>
+    <div class="status" id="status" role="status"></div>
+    <div class="ab" id="sync" hidden style="margin:0 0 22px">
+      <div class="ab-head"><h2>Sync folder</h2><div class="acts"><button class="btn" id="syncNow" type="button" hidden>Sync now</button><button class="btn primary" id="syncPick" type="button">Choose folder</button></div></div>
+      <p class="ab-note" id="syncNote">Pick iCloud Drive → <strong>Speed Reader</strong> once. Books you send from the Mac app then show up here by themselves each time you open the app.</p>
+    </div>
+    <ul class="books" id="books"></ul>
+    <div class="ab" id="ab" hidden>
+      <div class="ab-head"><h2>From Apple Books</h2><button class="btn" id="abScan" type="button">Scan Apple Books</button></div>
+      <p class="ab-note" id="abNote">Find the EPUBs and PDFs you’ve added to Apple Books and bring them into Super Speed Reader Ultra. Books bought in the Book Store are locked by Apple and can’t be opened.</p>
+      <ul class="books" id="abList"></ul>
+    </div>
+  </section>
+</div>
+
+<script src="jszip.min.js"></script>
+<script src="pdf.min.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+
+/* ---------- settings ---------- */
+const DEF = {wpm:300, chunk:1, punct:true, size:'m', last:'sample'};
+let S = {...DEF};
+try { S = {...DEF, ...JSON.parse(localStorage.getItem('tachy.settings')||'{}')}; } catch(e){}
+const saveS = () => { try { localStorage.setItem('tachy.settings', JSON.stringify(S)); } catch(e){} };
+
+/* ---------- storage (IndexedDB with memory fallback) ---------- */
+const mem = {books:new Map(), meta:new Map()};
+let dbp = null;
+function db(){
+  if (!dbp) dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('tachy', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('books',{keyPath:'id'}); d.createObjectStore('meta',{keyPath:'id'}); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    } catch(e){ rej(e); }
+  });
+  return dbp;
+}
+async function op(store, mode, fn){
+  try {
+    const d = await db();
+    return await new Promise((res, rej) => {
+      const t = d.transaction(store, mode); const r = fn(t.objectStore(store));
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+    });
+  } catch(e){ return null; }
+}
+const put = async (store, v) => { mem[store].set(v.id, v); await op(store,'readwrite', s => s.put(v)); };
+const get = async (store, id) => (await op(store,'readonly', s => s.get(id))) || mem[store].get(id) || null;
+const all = async store => { const r = await op(store,'readonly', s => s.getAll()); if (r && r.length) return r; return [...mem[store].values()]; };
+const del = async (store, id) => { mem[store].delete(id); await op(store,'readwrite', s => s.delete(id)); };
+
+/* ---------- text building ---------- */
+function build(sections){ // sections: [{title, paras:[string]}]
+  const words = [], paraEnds = [], chapters = [];
+  for (const sec of sections){
+    const start = words.length;
+    for (const p of sec.paras){
+      const w = p.replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+      if (!w.length) continue;
+      for (const x of w) words.push(x);
+      paraEnds.push(words.length - 1);
+    }
+    if (words.length > start) chapters.push({title: sec.title || `Section ${chapters.length+1}`, start});
+  }
+  return {words, paraEnds, chapters};
+}
+
+/* ---------- parsers ---------- */
+function setStatus(t){ $('status').textContent = t || ''; }
+
+async function parseTxt(file){
+  const text = await file.text();
+  const paras = text.replace(/\r/g,'').split(/\n\s*\n/);
+  // detect chapter headings like "Chapter 1" / "CHAPTER I"
+  const sections = []; let cur = {title:'Beginning', paras:[]};
+  for (const p of paras){
+    const t = p.trim();
+    if (/^(chapter|part|book)\s+[\divxlc]+\b/i.test(t) && t.length < 80){
+      if (cur.paras.length) sections.push(cur);
+      cur = {title:t.replace(/\s+/g,' '), paras:[]};
+    } else cur.paras.push(t);
+  }
+  sections.push(cur);
+  return {title:file.name.replace(/\.[^.]+$/,''), author:'', ...build(sections)};
+}
+
+function resolvePath(base, href){
+  const parts = (base + decodeURIComponent(href.split('#')[0])).split('/'); const out = [];
+  for (const p of parts){ if (p === '..') out.pop(); else if (p !== '.' && p !== '') out.push(p); }
+  return out.join('/');
+}
+async function parseEpub(file){
+  if (!window.JSZip) throw new Error('The EPUB reader did not load. Check your connection and reload the page.');
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  // Finder's Compress wraps the book in a folder ("Book.epub/META-INF/..."), so find the book root wherever it is
+  const cpath = Object.keys(zip.files).filter(n => !n.startsWith('__MACOSX') && /(^|\/)META-INF\/container\.xml$/i.test(n)).sort((a,b) => a.length - b.length)[0];
+  if (!cpath) throw new Error('This file isn’t an EPUB book. If it’s a zip, it needs a book folder (with META-INF inside) in it.');
+  const root = cpath.slice(0, cpath.length - 'META-INF/container.xml'.length);
+  const zf = p => zip.file(root + p);
+  const container = xml(await zf('META-INF/container.xml').async('string'));
+  const opfPath = container.querySelector('rootfile').getAttribute('full-path');
+  const base = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/')+1) : '';
+  const opf = xml(await zf(opfPath).async('string'));
+  const title = (opf.getElementsByTagName('dc:title')[0]||{}).textContent || file.name.replace(/(\.epub)?(\.zip)?$/i,'');
+  const author = (opf.getElementsByTagName('dc:creator')[0]||{}).textContent || '';
+  const manifest = {};
+  for (const it of opf.getElementsByTagName('item')) manifest[it.getAttribute('id')] = {href:it.getAttribute('href'), type:it.getAttribute('media-type'), props:it.getAttribute('properties')||''};
+
+  // table of contents labels
+  const labels = {};
+  try {
+    const navItem = Object.values(manifest).find(m => m.props.includes('nav'));
+    const ncxItem = Object.values(manifest).find(m => m.type === 'application/x-dtbncx+xml');
+    if (navItem){
+      const p = resolvePath(base, navItem.href); const nb = p.includes('/') ? p.slice(0,p.lastIndexOf('/')+1) : '';
+      const doc = new DOMParser().parseFromString(await zf(p).async('string'), 'text/html');
+      for (const a of doc.querySelectorAll('nav a[href]')){ const k = resolvePath(nb, a.getAttribute('href')); if (!labels[k]) labels[k] = a.textContent.trim(); }
+    } else if (ncxItem){
+      const p = resolvePath(base, ncxItem.href); const nb = p.includes('/') ? p.slice(0,p.lastIndexOf('/')+1) : '';
+      const doc = xml(await zf(p).async('string'));
+      for (const np of doc.getElementsByTagName('navPoint')){
+        const lab = np.getElementsByTagName('text')[0]; const c = np.getElementsByTagName('content')[0];
+        if (lab && c){ const k = resolvePath(nb, c.getAttribute('src')); if (!labels[k]) labels[k] = lab.textContent.trim(); }
+      }
+    }
+  } catch(e){}
+
+  const spine = [...opf.getElementsByTagName('itemref')].map(r => manifest[r.getAttribute('idref')]).filter(Boolean);
+  const sections = [];
+  const BLOCK = 'p,div,h1,h2,h3,h4,h5,h6,li,blockquote,br,tr,section,article,pre';
+  for (let n = 0; n < spine.length; n++){
+    setStatus(`Reading section ${n+1} of ${spine.length}…`);
+    const path = resolvePath(base, spine[n].href); const f = zf(path); if (!f) continue;
+    const doc = new DOMParser().parseFromString(await f.async('string'), 'text/html');
+    const body = doc.body; if (!body) continue;
+    body.querySelectorAll('script,style,nav').forEach(e => e.remove());
+    const head = body.querySelector('h1,h2,h3');
+    body.querySelectorAll(BLOCK).forEach(e => e.after(doc.createTextNode('\n\n')));
+    const paras = body.textContent.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+    if (!paras.join(' ').trim()) continue;
+    sections.push({title: labels[path] || (head && head.textContent.trim().slice(0,80)) || '', paras});
+  }
+  return {title:title.trim(), author:author.trim(), ...build(sections)};
+}
+
+async function parsePdf(file){
+  const lib = window.pdfjsLib;
+  if (!lib) throw new Error('The PDF reader did not load. Check your connection and reload the page.');
+  lib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+  const pdf = await lib.getDocument({data: new Uint8Array(await file.arrayBuffer()), isEvalSupported:false}).promise;
+  let title = file.name.replace(/\.pdf$/i,''), author = '';
+  try { const m = await pdf.getMetadata(); const t = (m.info?.Title||'').trim(), a = (m.info?.Author||'').trim();
+    if (t && !/^(untitled|document\d*|microsoft word.*|.*\.(docx?|pdf|indd))$/i.test(t)) title = t;
+    if (a && !/^(anonymous|unknown|user|admin)$/i.test(a)) author = a; } catch(e){}
+  // outline → page starts
+  const marks = [];
+  try {
+    const outline = await pdf.getOutline();
+    for (const o of (outline||[])){
+      let dest = o.dest; if (typeof dest === 'string') dest = await pdf.getDestination(dest);
+      if (dest && dest[0]) marks.push({page: await pdf.getPageIndex(dest[0]), title:o.title});
+    }
+  } catch(e){}
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++){
+    setStatus(`Reading page ${p} of ${pdf.numPages}…`);
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    let s = '';
+    for (const it of tc.items){
+      if (!('str' in it)) continue;
+      let str = it.str;
+      if (it.hasEOL){
+        if (/[A-Za-z]-$/.test(str)) s += str.slice(0,-1);
+        else s += str + (/[.!?"”]$/.test(str.trim()) ? '\n\n' : ' ');
+      } else s += str;
+    }
+    pages.push(s);
+  }
+  const sections = [];
+  if (marks.length){
+    marks.sort((a,b) => a.page - b.page);
+    if (marks[0].page > 0) marks.unshift({page:0, title:'Front matter'});
+    marks.forEach((m, i) => {
+      const end = i+1 < marks.length ? marks[i+1].page : pages.length;
+      sections.push({title:m.title, paras: pages.slice(m.page, Math.max(end, m.page+1)).join('\n\n').split(/\n\s*\n/)});
+    });
+  } else {
+    for (let i = 0; i < pages.length; i += 10)
+      sections.push({title:`Pages ${i+1}–${Math.min(i+10, pages.length)}`, paras: pages.slice(i, i+10).join('\n\n').split(/\n\s*\n/)});
+  }
+  return {title, author, ...build(sections)};
+}
+
+async function addFiles(files){
+  for (const file of files){
+    try {
+      setStatus(`Opening ${file.name}…`);
+      const ext = file.name.split('.').pop().toLowerCase();
+      const parsed = (ext === 'epub' || ext === 'zip') ? await parseEpub(file) : ext === 'pdf' ? await parsePdf(file) : await parseTxt(file);
+      if (parsed.words.length < 5) throw new Error(ext === 'pdf' ? 'No readable text found. This PDF may be scanned images.' : 'No readable text found in this file.');
+      const id = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      await put('books', {id, words:parsed.words, paraEnds:parsed.paraEnds});
+      await put('meta', {id, title:parsed.title, author:parsed.author, count:parsed.words.length, chapters:parsed.chapters, pos:0, added:Date.now(), opened:Date.now()});
+      setStatus(`Added “${parsed.title}” · ${parsed.words.length.toLocaleString()} words`);
+      await renderLibrary();
+      if (files.length === 1){ await openBook(id); showReader(); }
+    } catch(e){
+      setStatus(`Couldn’t open ${file.name}: ${e.message || e}`);
+    }
+  }
+}
+
+/* ---------- sample ---------- */
+const SAMPLE = {
+  id:'sample', title:'Getting started', author:'With an excerpt from Walden (1854)',
+  sections:[
+    {title:'How it works', paras:[
+      'Welcome to Super Speed Reader Ultra. Words appear one at a time in the same spot, so your eyes stop jumping across the page. The red letter marks the point your eye should rest on.',
+      'Press space or tap the stage to play and pause. When you pause, the surrounding text appears above so you can find your place. Tap any word there to jump to it.',
+      'Use the arrow keys to move back or forward a sentence, and up or down to change speed. Most people start near 300 words per minute and climb from there.',
+      'Open the library to add your own books. It reads EPUB, PDF and plain text files. Your place in every book is saved in this browser.'
+    ]},
+    {title:'Walden — Where I Lived', paras:[
+      'I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived.',
+      'I did not wish to live what was not life, living is so dear; nor did I wish to practise resignation, unless it was quite necessary. I wanted to live deep and suck out all the marrow of life, to live so sturdily and Spartan-like as to put to rout all that was not life, to cut a broad swath and shave close, to drive life into a corner, and reduce it to its lowest terms.',
+      'Our life is frittered away by detail. An honest man has hardly need to count more than his ten fingers, or in extreme cases he may add his ten toes, and lump the rest. Simplicity, simplicity, simplicity! I say, let your affairs be as two or three, and not a hundred or a thousand.',
+      'Let us spend one day as deliberately as Nature, and not be thrown off the track by every nutshell and mosquito’s wing that falls on the rails.'
+    ]}
+  ]
+};
+async function ensureSample(){
+  const old = await get('meta','sample');
+  if (old && old.author === SAMPLE.author) return;
+  const b = build(SAMPLE.sections);
+  await put('books', {id:'sample', words:b.words, paraEnds:b.paraEnds});
+  await put('meta', {id:'sample', title:SAMPLE.title, author:SAMPLE.author, count:b.words.length, chapters:b.chapters, pos:Math.min(old?.pos||0, b.words.length-1), added:0, opened:old?.opened||0, sample:true});
+}
+
+/* ---------- reader engine ---------- */
+let book = null, meta = null, paraSet = new Set(), i = 0, playing = false, timer = null, ramp = 0, wake = null, lastSave = 0;
+
+async function openBook(id){
+  stop();
+  const m = await get('meta', id), b = await get('books', id);
+  if (!m || !b) return false;
+  meta = m; book = b; paraSet = new Set(b.paraEnds); i = Math.min(m.pos || 0, b.words.length-1);
+  meta.opened = Date.now(); put('meta', meta);
+  S.last = id; saveS();
+  $('bookTitle').innerHTML = `<strong>${esc(meta.title)}</strong>${meta.author ? ' · ' + esc(meta.author) : ''}`;
+  $('scrub').max = b.words.length - 1;
+  const sel = $('chapter'); sel.innerHTML = '';
+  meta.chapters.forEach((c, k) => { const o = document.createElement('option'); o.value = k; o.textContent = c.title; sel.appendChild(o); });
+  sel.hidden = meta.chapters.length < 2;
+  render(); showContext();
+  return true;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const endsSentence = w => /[.!?…]["”’)\]]*$/.test(w);
+const endsClause = w => /[,;:—–]["”’)\]]*$/.test(w);
+
+function chunk(idx){
+  const n = S.chunk, out = [];
+  for (let k = idx; k < book.words.length && out.length < n; k++){
+    out.push(book.words[k]);
+    if (endsSentence(book.words[k]) || endsClause(book.words[k]) || paraSet.has(k)) break;
+  }
+  return out;
+}
+function orp(w){
+  const core = w.replace(/^[^\p{L}\p{N}]+/u, ''), lead = w.length - core.length;
+  const L = core.replace(/[^\p{L}\p{N}]+$/u, '').length;
+  const k = L <= 1 ? 0 : L <= 5 ? 1 : L <= 9 ? 2 : L <= 13 ? 3 : 4;
+  return Math.min(lead + k, w.length - 1);
+}
+function render(){
+  if (!book) return;
+  const c = chunk(i), s = c.join(' ');
+  const p = c.length === 1 ? orp(s) : Math.max(0, Math.floor(s.length * .3));
+  $('wl').textContent = s.slice(0, p); $('wp').textContent = s[p] || ''; $('wr').textContent = s.slice(p+1);
+  const scale = s.length > 13 ? Math.max(.55, 13 / s.length) : 1;
+  $('word').style.fontSize = scale < 1 ? `calc(var(--word-size) * ${scale.toFixed(3)})` : '';
+  const pv = $('wp'), mid = pv.offsetLeft + pv.offsetWidth / 2;
+  document.querySelectorAll('.notch').forEach(n => { n.style.left = mid + 'px'; });
+  $('scrub').value = i;
+  const len = book.words.length;
+  $('pct').textContent = Math.floor(i / Math.max(1,len-1) * 100) + '%';
+  const mins = (len - i) / S.wpm * 1.12;
+  $('left').textContent = mins < 1 ? '<1 min' : mins < 60 ? Math.round(mins) + ' min' : `${Math.floor(mins/60)} h ${Math.round(mins%60)} min`;
+  let ch = 0; for (let k = 0; k < meta.chapters.length; k++) if (meta.chapters[k].start <= i) ch = k;
+  $('chapter').value = ch;
+}
+function delay(c, last){
+  let d = 60000 / S.wpm * c.length;
+  const w = book.words[last];
+  if (S.punct){
+    if (paraSet.has(last)) d *= 2.6;
+    else if (endsSentence(w)) d *= 2.1;
+    else if (endsClause(w)) d *= 1.45;
+  }
+  if (c.length === 1 && w.length > 9) d *= 1.25;
+  if (ramp > 0){ d *= 1 + ramp * .15; ramp--; }
+  return d;
+}
+function step(){
+  if (!playing) return;
+  render();
+  const c = chunk(i), last = i + c.length - 1;
+  timer = setTimeout(() => {
+    i = last + 1;
+    if (i >= book.words.length){ i = book.words.length - 1; stop(); save(true); return; }
+    if (Date.now() - lastSave > 3000) save();
+    step();
+  }, delay(c, last));
+}
+async function play(){
+  if (!book || playing) return;
+  if (i >= book.words.length - 1) i = 0;
+  playing = true; ramp = 4;
+  $('context').hidden = true; $('hint').hidden = true;
+  $('playIco').innerHTML = '<path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/>'; $('playBtn').setAttribute('aria-label','Pause');
+  try { wake = await navigator.wakeLock?.request('screen'); } catch(e){ wake = null; }
+  if (IOS) nativeWake(true);
+  step();
+}
+function stop(){
+  if (!playing) return;
+  playing = false; clearTimeout(timer);
+  $('playIco').innerHTML = '<path d="M7 4.5v15l13-7.5z"/>'; $('playBtn').setAttribute('aria-label','Play');
+  try { wake && wake.release(); } catch(e){} wake = null;
+  if (IOS) nativeWake(false);
+  save(true); showContext();
+}
+const toggle = () => playing ? stop() : play();
+function save(force){
+  if (!meta) return; lastSave = Date.now();
+  meta.pos = i; put('meta', meta);
+}
+function seek(n){
+  if (!book) return;
+  i = Math.max(0, Math.min(book.words.length - 1, n));
+  if (playing){ clearTimeout(timer); ramp = 2; step(); } else { render(); showContext(); save(); }
+}
+function sentenceStart(from){
+  let k = from - 1;
+  while (k >= 0 && !endsSentence(book.words[k]) && !paraSet.has(k)) k--;
+  return k + 1;
+}
+function prevSentence(){ let s = sentenceStart(i); if (s >= i - 1) s = sentenceStart(Math.max(0, s - 1)); seek(s); }
+function nextSentence(){
+  let k = i;
+  while (k < book.words.length - 1 && !endsSentence(book.words[k]) && !paraSet.has(k)) k++;
+  seek(k + 1);
+}
+function showContext(){
+  if (!book || playing) return;
+  const a = Math.max(0, i - 70), b = Math.min(book.words.length, i + 90);
+  let h = '';
+  for (let k = a; k < b; k++){
+    h += `<span data-i="${k}"${k === i ? ' class="cur"' : ''}>${esc(book.words[k])}</span> `;
+    if (paraSet.has(k)) h += '<i class="pb"></i>';
+  }
+  const el = $('context'); el.innerHTML = h; el.hidden = false; $('hint').hidden = false;
+  const cur = el.querySelector('.cur'); if (cur) el.scrollTop = cur.offsetTop - el.clientHeight * .4 - el.offsetTop;
+}
+
+/* ---------- library ---------- */
+const confirmArm = new Set();
+async function renderLibrary(){
+  const list = (await all('meta')).sort((a,b) => (b.opened||0) - (a.opened||0));
+  const ul = $('books');
+  if (!list.length){ ul.innerHTML = '<li class="empty">No books yet. Add one above.</li>'; return; }
+  ul.innerHTML = list.map(m => {
+    const pct = Math.floor((m.pos||0) / Math.max(1, m.count-1) * 100);
+    const mins = Math.round((m.count - (m.pos||0)) / S.wpm * 1.12);
+    const left = mins < 60 ? `${mins} min` : `${Math.floor(mins/60)} h ${mins%60} min`;
+    return `<li class="book">
+      <div><div class="t">${esc(m.title)}${m.sample ? '<span class="tag">Sample</span>' : ''}</div>
+      <div class="a">${m.author ? esc(m.author) + ' · ' : ''}${m.count.toLocaleString()} words</div></div>
+      <div class="acts"><button class="btn primary" type="button" data-open="${m.id}">${pct > 0 ? 'Continue' : 'Read'}</button>
+      <button class="btn${confirmArm.has(m.id) ? ' danger' : ''}" type="button" data-del="${m.id}">${confirmArm.has(m.id) ? 'Confirm remove' : 'Remove'}</button></div>
+      <div class="prog"><span>${pct}%</span><span class="bar2"><i style="width:${pct}%"></i></span><span>${left} left at ${S.wpm} wpm</span></div>
+    </li>`;
+  }).join('');
+}
+$('books').addEventListener('click', async e => {
+  const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+  if (o){ await openBook(o.dataset.open); showReader(); }
+  if (d){
+    const id = d.dataset.del;
+    if (!confirmArm.has(id)){ confirmArm.add(id); renderLibrary(); setTimeout(() => { confirmArm.delete(id); renderLibrary(); }, 4000); return; }
+    confirmArm.delete(id); await del('books', id); await del('meta', id);
+    if (meta && meta.id === id){ book = null; meta = null; }
+    setStatus('Book removed.'); renderLibrary();
+  }
+});
+function showLibrary(){ stop(); $('reader').hidden = true; $('library').hidden = false; renderLibrary(); }
+async function showReader(){
+  if (!book){ await ensureSample(); await openBook('sample'); }
+  $('library').hidden = true; $('reader').hidden = false;
+}
+$('libBtn').onclick = () => $('library').hidden ? showLibrary() : showReader();
+$('backToReader').onclick = showReader;
+$('file').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+['dragover','dragenter'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave','drop'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+window.addEventListener('drop', e => { const f = [...(e.dataTransfer?.files||[])]; if (f.length){ if ($('library').hidden) showLibrary(); addFiles(f); } });
+
+/* ---------- controls ---------- */
+$('playBtn').onclick = toggle;
+$('backBtn').onclick = prevSentence;
+$('fwdBtn').onclick = nextSentence;
+$('stage').addEventListener('click', e => {
+  const w = e.target.closest('#context span[data-i]');
+  if (w){ seek(+w.dataset.i); return; }
+  if (e.target.closest('#context')) return;
+  toggle();
+});
+$('scrub').addEventListener('input', e => seek(+e.target.value));
+$('chapter').addEventListener('change', e => seek(meta.chapters[+e.target.value].start));
+
+function setWpm(v){ S.wpm = Math.max(100, Math.min(1000, v)); $('wpm').value = S.wpm; $('wpmVal').textContent = S.wpm + ' wpm'; saveS(); if (book && !playing) render(); }
+$('wpm').addEventListener('input', e => setWpm(+e.target.value));
+function segInit(id, key, cast, apply){
+  const seg = $(id);
+  const sync = () => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(cast(b.dataset.v) === S[key])));
+  seg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S[key] = cast(b.dataset.v); saveS(); sync(); apply && apply(); });
+  sync();
+}
+const SIZES = {s:'clamp(1.7rem, 5.5vw, 3rem)', m:'clamp(2.2rem, 7vw, 4rem)', l:'clamp(2.7rem, 9vw, 5.2rem)'};
+const applySize = () => { document.documentElement.style.setProperty('--word-size', SIZES[S.size] || SIZES.m); };
+segInit('chunkSeg', 'chunk', Number, () => book && !playing && render());
+segInit('sizeSeg', 'size', String, applySize);
+$('punct').checked = S.punct; $('punct').onchange = e => { S.punct = e.target.checked; saveS(); };
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input[type=text],input[type=number],select,textarea')) return;
+  if ($('reader').hidden) return;
+  if (e.code === 'Space'){ e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); e.shiftKey ? seek(i-1) : prevSentence(); }
+  else if (e.key === 'ArrowRight'){ e.preventDefault(); e.shiftKey ? seek(i+1) : nextSentence(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); setWpm(S.wpm + 25); }
+  else if (e.key === 'ArrowDown'){ e.preventDefault(); setWpm(S.wpm - 25); }
+});
+window.addEventListener('resize', () => { if (book && !playing) render(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+window.addEventListener('pagehide', () => save(true));
+
+/* ---------- iPad / iPhone app ---------- */
+const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native);
+const nativeWake = on => { try { window.webkit.messageHandlers.native.postMessage({type:'wake', on}); } catch(e){} };
+if (IOS){
+  document.documentElement.classList.add('ios');
+  window.ssruIncoming = (name, b64) => {
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+    addFiles([new File([bytes], name)]);
+  };
+  window.ssruError = msg => { showLibrary(); setStatus(msg); };
+  const post = m => { try { window.webkit.messageHandlers.native.postMessage(m); } catch(e){} };
+  $('sync').hidden = false;
+  $('syncPick').onclick = () => post({type:'pickFolder'});
+  $('syncNow').onclick = () => post({type:'syncNow'});
+  window.ssruSyncState = (folder, msg) => {
+    $('syncNow').hidden = !folder;
+    $('syncPick').textContent = folder ? 'Change folder' : 'Choose folder';
+    $('syncPick').classList.toggle('primary', !folder);
+    if (folder) $('syncNote').innerHTML = `Syncing from <strong>${esc(folder)}</strong>. New books come in each time you open the app.`;
+    if (msg) setStatus(msg);
+  };
+  const d = $('drop');
+  d.querySelector('strong').nextSibling.nextSibling.textContent = 'Tap to choose an EPUB, PDF or TXT file from Files. You can also share a book to this app from Files, Books or Mail.';
+  d.querySelector('span').textContent = 'Books stay on this iPad. Nothing is uploaded anywhere.';
+}
+
+/* ---------- Mac app ---------- */
+const N = window.tachyNative;
+if (N){
+  document.documentElement.classList.add('native');
+  $('ab').hidden = false;
+  $('drop').innerHTML = '<strong>Add a book</strong><br>Click to choose an EPUB, PDF or TXT file, or drop one here. You can also drop books on the app icon in the Dock.<br><span style="font-size:.8rem">Books stay on this Mac. Nothing is uploaded anywhere.</span>';
+  N.onIncoming(f => addFiles([new File([f.data], f.name)]));
+  N.onError(msg => { showLibrary(); setStatus(msg); });
+  N.onMenu('library', () => showLibrary());
+  N.onMenu('books', () => { showLibrary(); scanApple(); });
+  N.onMenu('toggle', () => { if (!$('reader').hidden) toggle(); });
+  N.onMenu('faster', () => setWpm(S.wpm + 25));
+  N.onMenu('slower', () => setWpm(S.wpm - 25));
+  $('drop').addEventListener('click', e => { e.preventDefault(); N.openDialog(); });
+  $('abScan').onclick = scanApple;
+}
+let appleBooks = [], scanHint = null;
+if (N) N.onProgress(d => {
+  $('abScan').textContent = `Scanning… ${d.checked}`;
+  $('abNote').textContent = `Checking ${d.where}: ${d.checked} books looked at so far.`;
+});
+async function scanApple(){
+  const btn = $('abScan'); btn.disabled = true; btn.textContent = 'Scanning…';
+  $('abNote').textContent = 'Looking through your Apple Books library…';
+  $('abList').innerHTML = '';
+  clearTimeout(scanHint);
+  scanHint = setTimeout(() => {
+    $('abList').innerHTML = '<li class="empty">Still working. If macOS asked whether this app can access data from other apps, that dialog may be hidden behind this window. Click Allow there and the scan will continue.</li>';
+  }, 6000);
+  try {
+    const r = await N.scanBooks();
+    clearTimeout(scanHint);
+    appleBooks = r.books;
+    if (r.waiting){
+      $('abNote').textContent = 'macOS is waiting for your permission.';
+      $('abList').innerHTML = '<li class="empty">Look for a dialog asking to let Super Speed Reader Ultra access data from other apps (it may be behind this window or in the Dock). Click Allow, then click Scan again.</li>';
+    } else if (r.denied){
+      $('abList').innerHTML = `<li class="empty">macOS blocked the app from reading your Apple Books folder. Open System Settings → Privacy &amp; Security → Full Disk Access, click +, add Super Speed Reader Ultra from Applications and switch it on. Then quit the app with Cmd+Q and reopen it.
+        <div style="margin-top:10px"><button class="btn" type="button" id="abPriv">Open Privacy Settings</button></div></li>`;
+      $('abPriv').onclick = () => N.openPrivacySettings();
+    } else await renderApple();
+  } catch(e){ clearTimeout(scanHint); $('abList').innerHTML = `<li class="empty">The scan stopped: ${esc(e.message || e)}</li>`; }
+  btn.disabled = false; btn.textContent = 'Scan again';
+}
+async function renderApple(){
+  const have = new Set((await all('meta')).map(m => (m.title || '').toLowerCase()));
+  if (!appleBooks.length){ $('abList').innerHTML = '<li class="empty">No books found in Apple Books on this Mac. Books stored only in iCloud may need to be downloaded in the Books app first.</li>'; return; }
+  const ready = appleBooks.filter(b => !b.locked && !b.cloud && !b.unreadable).length;
+  const cloud = appleBooks.filter(b => b.cloud).length;
+  $('abNote').innerHTML = `${ready} of ${appleBooks.length} books are ready to import.` +
+    (cloud ? ` ${cloud} are still in iCloud: open them once in the Books app to download them, then scan again. <button class="btn" type="button" id="abOpenBooks" style="margin-left:6px;padding:4px 10px">Open Books</button>` : '') +
+    ' Books bought in the Book Store are locked by Apple.';
+  const ob = $('abOpenBooks'); if (ob) ob.onclick = () => N.openBooksApp();
+  $('abList').innerHTML = appleBooks.map((b, k) => {
+    const inLib = have.has(b.title.toLowerCase());
+    const act = b.locked ? '<span class="lock">Locked by Apple</span>'
+      : b.cloud ? '<span class="lock">In iCloud, not downloaded</span>'
+      : b.unreadable ? '<span class="lock">Can’t read this book</span>'
+      : inLib ? '<span class="lock">In library</span>'
+      : `<button class="btn primary" type="button" data-ab="${k}">Import</button>`;
+    return `<li class="book"><div><div class="t">${esc(b.title)}<span class="tag">${b.kind}</span></div>
+      <div class="a">${b.author ? esc(b.author) : '&nbsp;'}</div></div><div class="acts">${act}</div></li>`;
+  }).join('');
+}
+$('abList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-ab]'); if (!b) return;
+  const book = appleBooks[+b.dataset.ab];
+  b.disabled = true; b.textContent = 'Importing…';
+  try {
+    const f = await N.readBook(book.path);
+    await addFiles([new File([f.data], f.name)]);
+  } catch(err){ setStatus(`Couldn’t import ${book.title}: ${err.message || err}`); }
+  renderApple();
+});
+
+/* ---------- boot ---------- */
+(async () => {
+  setWpm(S.wpm); applySize();
+  try { navigator.storage?.persist?.(); } catch(e){}
+  await ensureSample();
+  if (!(await openBook(S.last))) await openBook('sample');
+})();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'app:') window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>

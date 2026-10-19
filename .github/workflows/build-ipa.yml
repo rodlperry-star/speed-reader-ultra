@@ -11,40 +11,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack project
-        run: |
-          unzip -q ./*.zip -d src
-          ls src
-
       - name: Generate Xcode project
-        working-directory: src
         run: |
           brew install xcodegen
           xcodegen generate
 
-      - name: Build
-        working-directory: src
+      - name: Build (unsigned)
         run: |
-          xcodebuild -project SpeedReader.xcodeproj -scheme SpeedReader \
-            -configuration Release -sdk iphoneos \
-            -destination 'generic/platform=iOS' -derivedDataPath build \
+          xcodebuild \
+            -project SpeedReader.xcodeproj \
+            -scheme SpeedReader \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build > xcodebuild.log 2>&1 || { grep -E "error:" xcodebuild.log | head -40; exit 1; }
+          grep -E "BUILD SUCCEEDED" xcodebuild.log
 
       - name: Package .ipa
-        working-directory: src
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/SpeedReader.app Payload/
           zip -qry SpeedReaderUltra.ipa Payload
+          ls -lh SpeedReaderUltra.ipa
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
         with:
           name: SpeedReaderUltra-ipa
-          path: src/SpeedReaderUltra.ipa
+          path: SpeedReaderUltra.ipa
 
-      - if: failure()
+      - name: Upload build log on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: src/xcodebuild.log
+          path: xcodebuild.log
