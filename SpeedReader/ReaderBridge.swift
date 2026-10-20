@@ -11,6 +11,7 @@ final class ReaderBridge: NSObject, ObservableObject, WKScriptMessageHandler, WK
     private var pageLoaded = false
     private var pending: [(name: String, data: Data)] = []
     private var syncing = false
+    private var importAck: CheckedContinuation<Void, Never>?
 
     // MARK: Books opened from Files, Books, Mail and other apps
 
@@ -64,6 +65,9 @@ final class ReaderBridge: NSObject, ObservableObject, WKScriptMessageHandler, WK
             pickFolder()
         case "syncNow":
             syncFolder(manual: true)
+        case "importDone":
+            importAck?.resume()
+            importAck = nil
         case "forgetFolder":
             FolderSync.forget()
             sendSyncState("Sync folder removed.")
@@ -110,17 +114,45 @@ final class ReaderBridge: NSObject, ObservableObject, WKScriptMessageHandler, WK
         syncing = true
         if manual { sendSyncState("Checking “\(folder.lastPathComponent)”…") }
         Task {
-            let result = await Task.detached(priority: .userInitiated) { FolderSync.newBooks(in: folder) }.value
-            for book in result.books { pending.append((book.name, book.data)) }
-            flush()
-            FolderSync.markImported(result.books.map(\.key))
+            let scan = await Task.detached(priority: .userInitiated) { FolderSync.candidates(in: folder) }.value
+            if let err = scan.error {
+                sendSyncState(err, folder: folder.lastPathComponent)
+                syncing = false
+                return
+            }
+            var added = 0, failed = 0
+            let total = scan.items.count
+            for (i, item) in scan.items.enumerated() {
+                sendSyncState("Importing \(i + 1) of \(total): \(item.name)", folder: folder.lastPathComponent)
+                let data = await Task.detached(priority: .userInitiated) { FolderSync.read(item, in: folder) }.value
+                guard let data, let webView else { failed += 1; continue }
+                let js = "window.ssruIncoming && window.ssruIncoming(\(jsString(item.name)), '\(data.base64EncodedString())', true)"
+                await waitForImport {
+                    webView.evaluateJavaScript(js) { _, error in
+                        if error != nil { Task { @MainActor in self.importAck?.resume(); self.importAck = nil } }
+                    }
+                }
+                FolderSync.markImported([item.key])
+                added += 1
+            }
             var msg: String
-            if let err = result.error { msg = err }
-            else if result.books.isEmpty { msg = "Up to date with “\(folder.lastPathComponent)”." }
-            else { msg = "Added \(result.books.count) new book\(result.books.count == 1 ? "" : "s") from “\(folder.lastPathComponent)”." }
-            if result.waiting > 0 { msg += " \(result.waiting) still downloading from iCloud — they’ll come in next time." }
+            if total == 0 { msg = "Up to date with “\(folder.lastPathComponent)”." }
+            else { msg = "Added \(added) book\(added == 1 ? "" : "s") from “\(folder.lastPathComponent)”." + (failed > 0 ? " \(failed) couldn’t be read." : "") }
+            if scan.waiting > 0 { msg += " \(scan.waiting) still downloading from iCloud. They’ll come in next time you open the app." }
             sendSyncState(msg, folder: folder.lastPathComponent)
             syncing = false
+        }
+    }
+
+    /// Runs `start`, then waits until the page says it finished importing (or 3 minutes pass).
+    private func waitForImport(_ start: @escaping () -> Void) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            importAck = cont
+            start()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 180_000_000_000)
+                if let c = self.importAck { self.importAck = nil; c.resume() }
+            }
         }
     }
 

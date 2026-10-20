@@ -201,7 +201,7 @@ button,input,select{font:inherit;color:inherit}
       <p class="ab-note" id="abNote">Find the EPUBs and PDFs you’ve added to Apple Books and bring them into Super Speed Reader Ultra. Books bought in the Book Store are locked by Apple and can’t be opened.</p>
       <ul class="books" id="abList"></ul>
     </div>
-    <p class="ver" id="ver" style="margin-top:28px;color:var(--muted);font-size:.78rem;font-family:var(--mono)">Super Speed Reader Ultra · iPad app 1.4</p>
+    <p class="ver" id="ver" style="margin-top:28px;color:var(--muted);font-size:.78rem;font-family:var(--mono)">Super Speed Reader Ultra · iPad app 1.5</p>
   </section>
 </div>
 
@@ -387,7 +387,7 @@ async function parsePdf(file){
   return {title, author, ...build(sections)};
 }
 
-async function addFiles(files){
+async function addFiles(files, quiet){
   for (const file of files){
     try {
       setStatus(`Opening ${file.name}…`);
@@ -399,7 +399,7 @@ async function addFiles(files){
       await put('meta', {id, title:parsed.title, author:parsed.author, count:parsed.words.length, chapters:parsed.chapters, pos:0, added:Date.now(), opened:Date.now()});
       setStatus(`Added “${parsed.title}” · ${parsed.words.length.toLocaleString()} words`);
       await renderLibrary();
-      if (files.length === 1){ await openBook(id); showReader(); }
+      if (files.length === 1 && !quiet){ await openBook(id); showReader(); }
     } catch(e){
       setStatus(`Couldn’t open ${file.name}: ${e.message || e}`);
     }
@@ -647,10 +647,14 @@ const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.m
 const nativeWake = on => { try { window.webkit.messageHandlers.native.postMessage({type:'wake', on}); } catch(e){} };
 if (IOS){
   document.documentElement.classList.add('ios');
-  window.ssruIncoming = (name, b64) => {
-    const bin = atob(b64), bytes = new Uint8Array(bin.length);
-    for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
-    addFiles([new File([bytes], name)]);
+  window.ssruIncoming = async (name, b64, batch) => {
+    try {
+      const bin = atob(b64), bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      await addFiles([new File([bytes], name)], !!batch);
+    } finally {
+      if (batch) try { window.webkit.messageHandlers.native.postMessage({type:'importDone'}); } catch(e){}
+    }
   };
   window.ssruError = msg => { showLibrary(); setStatus(msg); };
   const post = m => { try { window.webkit.messageHandlers.native.postMessage(m); } catch(e){} };

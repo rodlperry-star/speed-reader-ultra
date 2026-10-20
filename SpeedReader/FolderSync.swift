@@ -7,9 +7,9 @@ enum FolderSync {
     private static let importedKey = "syncFolderImported"
     static let bookTypes: Set<String> = ["epub", "pdf", "txt"]
 
-    struct Book: Sendable {
+    struct Candidate: Sendable {
+        let url: URL
         let name: String
-        let data: Data
         let key: String
     }
 
@@ -47,9 +47,8 @@ enum FolderSync {
 
     // MARK: Scan
 
-    /// Runs off the main thread. Files still in iCloud are downloaded first (the coordinated
-    /// read waits for them), so the first sync of a big folder can take a while.
-    static func newBooks(in folder: URL) -> (books: [Book], waiting: Int, error: String?) {
+    /// Lists books in the folder that haven't been imported yet. Doesn't read them.
+    static func candidates(in folder: URL) -> (items: [Candidate], waiting: Int, error: String?) {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
 
@@ -61,11 +60,9 @@ enum FolderSync {
         } catch {
             return ([], 0, "Couldn’t open the sync folder. Choose it again in the Library.")
         }
-
         let done = imported
-        var found: [Book] = []
+        var items: [Candidate] = []
         var waiting = 0
-
         for entry in entries {
             var url = entry
             var name = entry.lastPathComponent
@@ -73,13 +70,14 @@ enum FolderSync {
             if name.hasPrefix("."), name.hasSuffix(".icloud") {
                 name = String(name.dropFirst().dropLast(".icloud".count))
                 url = folder.appendingPathComponent(name)
-                try? fm.startDownloadingUbiquitousItem(at: url)
-                waiting += 1
+                if bookTypes.contains(url.pathExtension.lowercased()) {
+                    try? fm.startDownloadingUbiquitousItem(at: url)
+                    waiting += 1
+                }
                 continue
             }
             if name.hasPrefix(".") { continue }
             guard bookTypes.contains(url.pathExtension.lowercased()) else { continue }
-
             let values = try? url.resourceValues(forKeys: Set(keys))
             if values?.isDirectory == true { continue }
             if let status = values?.ubiquitousItemDownloadingStatus, status != .current {
@@ -88,15 +86,21 @@ enum FolderSync {
                 continue
             }
             let key = "\(name)|\(values?.fileSize ?? 0)"
-            if done.contains(key) { continue }
-
-            var data: Data?
-            var coordError: NSError?
-            NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordError) { readURL in
-                data = try? Data(contentsOf: readURL)
-            }
-            if let data { found.append(Book(name: name, data: data, key: key)) }
+            if !done.contains(key) { items.append(Candidate(url: url, name: name, key: key)) }
         }
-        return (found, waiting, nil)
+        items.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return (items, waiting, nil)
+    }
+
+    /// Reads one book. Runs off the main thread.
+    static func read(_ item: Candidate, in folder: URL) -> Data? {
+        let scoped = folder.startAccessingSecurityScopedResource()
+        defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+        var data: Data?
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: item.url, options: [], error: &coordError) { readURL in
+            data = try? Data(contentsOf: readURL)
+        }
+        return data
     }
 }
